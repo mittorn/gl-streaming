@@ -42,7 +42,7 @@ typedef struct
 {
   gls_buffer_t tmp_buf;
   gls_buffer_t out_buf;
-  server_thread_args_t *sta;
+  server_context_t *sta;
   graphics_context_t *gc;
   void *cmd_data;
 } glse_context_t;
@@ -53,7 +53,7 @@ extern "C" {
 #endif
 
 extern glse_context_t glsec_global;
-void * glserver_thread(void * arg);
+void glserver_run(server_context_t *a);
 
 #ifdef __cplusplus
 }

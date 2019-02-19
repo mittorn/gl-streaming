@@ -47,7 +47,7 @@ struct egl_state_t {
   EGLContext context_;
 };
 struct egl_state_t egl_create_state_window_shared(EGLContext share_context,
-												  int x, int y, int w, int h) {
+                                                  int x, int y, int w, int h) {
   static Display * g_x_display;
   struct egl_state_t retval;
   retval.x_window_ = 0;
@@ -57,74 +57,74 @@ struct egl_state_t egl_create_state_window_shared(EGLContext share_context,
   retval.context_ = EGL_NO_CONTEXT;
 
   if (g_x_display == NULL) {
-	XInitThreads();
-	fprintf(stdout, "Using display: %s\n", XDisplayName(NULL));
-	g_x_display = XOpenDisplay(NULL);
-	if (g_x_display == NULL)
-	{
-	  fprintf(stderr, "XOpenDisplay() failed.\n");
-	  goto error;
-	}
+    XInitThreads();
+    fprintf(stdout, "Using display: %s\n", XDisplayName(NULL));
+    g_x_display = XOpenDisplay(NULL);
+    if (g_x_display == NULL)
+    {
+      fprintf(stderr, "XOpenDisplay() failed.\n");
+      goto error;
+    }
   }
   Window x_root_window = DefaultRootWindow(g_x_display);
   XSetWindowAttributes x_swa;
   memset(&x_swa, 0, sizeof(x_swa));
   x_swa.background_pixmap = None;
   retval.x_window_ = XCreateWindow(g_x_display, x_root_window, x, y, w, h, 0,
-								   CopyFromParent, InputOutput, CopyFromParent,
-								   CWBackPixmap, &x_swa);
+                                   CopyFromParent, InputOutput, CopyFromParent,
+                                   CWBackPixmap, &x_swa);
   if (retval.x_window_ == 0) {
-	fprintf(stderr, "XCreateWindow() failed.\n");
-	goto error;
+    fprintf(stderr, "XCreateWindow() failed.\n");
+    goto error;
   }
   XMapWindow(g_x_display, retval.x_window_);
   retval.display_ = eglGetDisplay(g_x_display);
   if (retval.display_ == EGL_NO_DISPLAY) {
-	fprintf(stderr, "eglGetDisplay() failed.\n");
-	goto error;
+    fprintf(stderr, "eglGetDisplay() failed.\n");
+    goto error;
   }
   if (!eglInitialize(retval.display_, NULL, NULL)) {
-	fprintf(stderr, "eglInitialize() failed with error: %x\n", eglGetError());
-	goto error;
+    fprintf(stderr, "eglInitialize() failed with error: %x\n", eglGetError());
+    goto error;
   }
   static const EGLint config_attribs[] = {
-	EGL_BUFFER_SIZE, 24,
-	EGL_BLUE_SIZE, 8,
-	EGL_GREEN_SIZE, 8,
-	EGL_RED_SIZE, 8,
-	EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
-	EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
-	EGL_NONE
+    EGL_BUFFER_SIZE, 24,
+    EGL_BLUE_SIZE, 8,
+    EGL_GREEN_SIZE, 8,
+    EGL_RED_SIZE, 8,
+    EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+    EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
+    EGL_NONE
   };
   EGLint num_configs;
   if (!eglChooseConfig(retval.display_, config_attribs, NULL, 0,
-					   &num_configs)) {
-	fprintf(stderr, "eglChooseConfig() failed with error: %x\n", eglGetError());
-	goto error;
+                       &num_configs)) {
+    fprintf(stderr, "eglChooseConfig() failed with error: %x\n", eglGetError());
+    goto error;
   }
   EGLConfig egl_config;
   if (!eglChooseConfig(retval.display_, config_attribs, &egl_config, 1,
-	  &num_configs)) {
-	fprintf(stderr, "eglChooseConfig() failed with error: %x\n", eglGetError());
-	goto error;
+      &num_configs)) {
+    fprintf(stderr, "eglChooseConfig() failed with error: %x\n", eglGetError());
+    goto error;
   }
   retval.surface_ = eglCreateWindowSurface(retval.display_, egl_config,
-										   retval.x_window_, NULL);
+                                           retval.x_window_, NULL);
   if (retval.surface_ == EGL_NO_SURFACE) {
-	fprintf(stderr, "eglCreateWindowSurface() failed with error: %x\n",
-			eglGetError());
-	goto error;
+    fprintf(stderr, "eglCreateWindowSurface() failed with error: %x\n",
+            eglGetError());
+    goto error;
   }
   static const EGLint context_attributes[] = {
-	EGL_CONTEXT_CLIENT_VERSION, 2,
-	EGL_NONE
+    EGL_CONTEXT_CLIENT_VERSION, 2,
+    EGL_NONE
   };
   retval.context_ = eglCreateContext(retval.display_, egl_config,
-									 share_context, context_attributes);
+                                     share_context, context_attributes);
   if (retval.context_ == EGL_NO_CONTEXT) {
-	fprintf(stderr, "eglCreateContext() failed with error: %x\n",
-			eglGetError());
-	goto error;
+    fprintf(stderr, "eglCreateContext() failed with error: %x\n",
+            eglGetError());
+    goto error;
   }
   error:
   return retval;

@@ -69,10 +69,11 @@ int main(int argc, char * argv[])
     }
   }
   server_init(&sc);
-  set_server_address_port(&sc, my_ip, my_port);
-  set_client_address_port(&sc, his_ip, his_port);
-
-  server_run(&sc, glserver_thread);
+  set_bind_address_port(&sc, my_ip, my_port);
+  set_address_port(&sc, his_ip, his_port);
+  server_start(&sc);
+  glserver_run(&sc);
+  server_stop(&sc);
 
   return 0;
 }

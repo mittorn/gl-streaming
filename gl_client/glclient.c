@@ -96,7 +96,7 @@ static inline void push_batch_command(size_t size)
 }
 
 
-int gls_init(server_thread_args_t *arg)
+int gls_init(server_context_t *arg)
 {
   memset(&glsc_global, 0, sizeof(glsc_global));
   glsc_global.sta = arg;
@@ -133,7 +133,7 @@ int gls_free()
 
 int send_packet(size_t size)
 {
-  server_thread_args_t *a = glsc_global.sta;
+  server_context_t *a = glsc_global.sta;
   if (sendto(a->sock_fd, glsc_global.out_buf.buf, size, 0, (struct sockaddr *)&a->sai, sizeof(struct sockaddr_in)) == -1)
   {
     return FALSE;
@@ -157,13 +157,13 @@ int gls_cmd_recv_data()
 
 int wait_for_data(char *str)
 {
-  server_thread_args_t *a = glsc_global.sta;
+  server_context_t *a = glsc_global.sta;
   struct timeval start_time, end_time;
   gettimeofday(&start_time, NULL);
   int quit = FALSE;
   while (quit == FALSE)
   {
-    void *popptr = (void *)fifo_pop_ptr_get(a->fifo);
+    void *popptr = (void *)fifo_pop_ptr_get(&a->fifo);
     if (popptr == NULL)
     {
       gettimeofday(&end_time, NULL);
@@ -190,7 +190,7 @@ int wait_for_data(char *str)
         default:
           break;
       }
-      fifo_pop_ptr_next(a->fifo);
+      fifo_pop_ptr_next(&a->fifo);
     }
   }
   return TRUE;
@@ -260,7 +260,6 @@ int gls_cmd_flip(unsigned int frame)
   wait_for_data("timeout:gls_cmd_flip");
   return TRUE;
 }
-
 
 int gls_cmd_flush()
 {

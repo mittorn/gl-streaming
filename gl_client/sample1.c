@@ -64,7 +64,7 @@ typedef struct
   };
 } color_t;
 
-  
+
 typedef struct
 {
   float modelproj_mat[16];
@@ -174,7 +174,7 @@ static GLushort ind_cube[] =
 };
 
 
-static const GLchar *VShader1 = 
+static const GLchar *VShader1 =
   "attribute vec3 pos;\n"
   "attribute vec3 nor;\n"
   "uniform mat4 model_mat;\n"
@@ -192,7 +192,7 @@ static const GLchar *VShader1 =
   "}\n";
 
 
-static const GLchar *FShader1 = 
+static const GLchar *FShader1 =
   "precision mediump float;\n"
   "varying vec4 fcol;\n"
   "void main(void)\n"
@@ -222,10 +222,8 @@ typedef struct
 } graphics_context_t;
 
 
-typedef struct
-{
-  char joy_dev[GLS_STRING_SIZE_PLUS];
-} glclient_context_t;
+
+static char joy_dev[GLS_STRING_SIZE_PLUS];
 
 
 static inline float randf(void)
@@ -325,19 +323,14 @@ void release_gl(graphics_context_t *gc)
   release_vbo(GL_ELEMENT_ARRAY_BUFFER, gc->vbo_ind);
 }
 
-
-void * glclient_thread(void * arg)
+void gl_app(int w, int h)
 {
-  server_thread_args_t * a = (server_thread_args_t *)arg;
-  static graphics_context_t gc;
-
+  graphics_context_t gc = {0};
   static struct js_event joy;
   int joy_fd;
   static char button[32];
 
-  glclient_context_t *glcc = a->user_context_ptr;
-
-  joy_fd = open(glcc->joy_dev, O_RDONLY);
+  joy_fd = open(joy_dev, O_RDONLY);
   if (joy_fd == -1)
   {
     printf("Error: Joystick device open\n");
@@ -347,12 +340,8 @@ void * glclient_thread(void * arg)
     fcntl(joy_fd, F_SETFL, O_NONBLOCK);
   }
 
-  gls_init(a);
-
-  gls_cmd_get_context();
-  gc.screen_width = glsc_global.screen_width;
-  gc.screen_height = glsc_global.screen_height;
-  printf("width:%d height:%d\n",glsc_global.screen_width,glsc_global.screen_height);
+  gc.screen_width = w, gc.screen_height = h;
+  printf("width:%d height:%d\n", w, h);
   init_gl(&gc);
 
   float aspect = (float)gc.screen_width / (float)gc.screen_height;
@@ -508,18 +497,12 @@ void * glclient_thread(void * arg)
   gls_cmd_flip(i);
   release_gl(&gc);
   gls_free();
-  if (joy_fd != -1)
-  {
-    close(joy_fd);
-  }
-  pthread_exit(NULL);
 }
 
 
 int main(int argc, char * argv[])
 {
   static server_context_t sc;
-  static glclient_context_t glcc;
   int opt;
   char my_ip[GLS_STRING_SIZE_PLUS];
   char his_ip[GLS_STRING_SIZE_PLUS];
@@ -527,7 +510,7 @@ int main(int argc, char * argv[])
   uint16_t his_port = 12345;
   strncpy(my_ip, "127.0.0.1", GLS_STRING_SIZE);
   strncpy(his_ip, "127.0.0.1", GLS_STRING_SIZE);
-  strncpy(glcc.joy_dev, "/dev/input/js0", GLS_STRING_SIZE);
+  strncpy(joy_dev, "/dev/input/js0", GLS_STRING_SIZE);
   while ((opt = getopt(argc, argv, "s:c:j:h")) != -1)
   {
     switch (opt)
@@ -541,7 +524,7 @@ int main(int argc, char * argv[])
         my_port = atoi(strtok(NULL, ":"));
         break;
       case 'j':
-        strncpy(glcc.joy_dev, optarg, GLS_STRING_SIZE);
+        strncpy(joy_dev, optarg, GLS_STRING_SIZE);
         break;
       case 'h':
       default:
@@ -550,11 +533,14 @@ int main(int argc, char * argv[])
     }
   }
   server_init(&sc);
-  set_server_address_port(&sc, my_ip, my_port);
-  set_client_address_port(&sc, his_ip, his_port);
-  set_client_user_context(&sc, &glcc);
+  set_bind_address_port(&sc, my_ip, my_port);
+  set_address_port(&sc, his_ip, his_port);
 
-  server_run(&sc, glclient_thread);
+  server_start(&sc);
+  gls_init(&sc);
+  gls_cmd_get_context();
+  gl_app(glsc_global.screen_width, glsc_global.screen_height);
+  server_stop(&sc);
 
   return 0;
 }

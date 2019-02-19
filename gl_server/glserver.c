@@ -58,7 +58,7 @@ static inline void pop_batch_command(size_t size)
 
 int send_packet(size_t size)
 {
-  server_thread_args_t *a = glsec_global.sta;
+  server_context_t *a = glsec_global.sta;
   if (sendto(a->sock_fd, glsec_global.out_buf.buf, size, 0, (struct sockaddr *)&a->sai, sizeof(struct sockaddr_in)) == -1)
   {
     return FALSE;
@@ -318,7 +318,7 @@ void glse_glShaderSource()
   char *str[256];
   for (i = 0; i < c->count; i++)
   {
-	str[i] = dat->data + dat->string[i];
+    str[i] = dat->data + dat->string[i];
   }
   glShaderSource(c->shader, c->count, (const GLchar**)str, dat->length);
   check_gl_err();
@@ -705,10 +705,9 @@ void glse_cmd_flush()
 }
 
 
-void * glserver_thread(void * arg)
+void glserver_run(server_context_t *a)
 {
   int quit = FALSE;
-  server_thread_args_t * a = (server_thread_args_t *)arg;
   static graphics_context_t gc;
   memset(&glsec_global, 0, sizeof(glsec_global));
   memset(&gc, 0, sizeof(gc));
@@ -720,11 +719,11 @@ void * glserver_thread(void * arg)
   glsec_global.tmp_buf.size = GLSE_TMP_BUFFER_SIZE;
   glsec_global.out_buf.buf = (char *)malloc(GLSE_OUT_BUFFER_SIZE);
   glsec_global.out_buf.size = GLSE_OUT_BUFFER_SIZE;
-  
+
 
   while (quit == FALSE)
   {
-    void *popptr = (void *)fifo_pop_ptr_get(a->fifo);
+    void *popptr = (void *)fifo_pop_ptr_get(&a->fifo);
     if (popptr == NULL)
     {
       usleep(a->sleep_usec);
@@ -790,7 +789,7 @@ void * glserver_thread(void * arg)
           printf("Error: Command\n");
           break;
       }
-      fifo_pop_ptr_next(a->fifo);
+      fifo_pop_ptr_next(&a->fifo);
     }
   }
 
@@ -798,8 +797,6 @@ void * glserver_thread(void * arg)
 
   free(glsec_global.tmp_buf.buf);
   free(glsec_global.out_buf.buf);
-
-  pthread_exit(NULL);
 }
 
 
