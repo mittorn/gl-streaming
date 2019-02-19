@@ -58,6 +58,10 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define GLS_SEND_PACKET(FUNCNAME) send_packet(sizeof(gls_##FUNCNAME##_t))
 
 gls_context_t glsc_global;
+static struct vbo_state
+{
+    GLuint vbo, ibo;
+} vbo;
 
 
 int gls_cmd_flush();
@@ -285,6 +289,11 @@ GL_APICALL void GL_APIENTRY glBindBuffer (GLenum target, GLuint buffer)
   GLS_SET_COMMAND_PTR_BATCH(c, glBindBuffer);
   c->target = target;
   c->buffer = buffer;
+  if( target == GL_ARRAY_BUFFER )
+      vbo.vbo = buffer;
+  else if( target == GL_ELEMENT_ARRAY_BUFFER )
+      vbo.ibo = buffer;
+  else printf("gls: unsupported buffer type!\n");
   GLS_PUSH_BATCH(glBindBuffer);
 }
 
@@ -442,6 +451,8 @@ GL_APICALL void GL_APIENTRY glEnableVertexAttribArray (GLuint index)
 
 GL_APICALL void GL_APIENTRY glVertexAttribPointer (GLuint indx, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid* ptr)
 {
+  if( !vbo.vbo ) // ignore non-vbo
+      return;
   GLS_SET_COMMAND_PTR_BATCH(c, glVertexAttribPointer);
   c->indx = indx;
   c->size = size;
@@ -629,6 +640,8 @@ GL_APICALL void GL_APIENTRY glDisable (GLenum cap)
 
 GL_APICALL void GL_APIENTRY glDrawElements (GLenum mode, GLsizei count, GLenum type, const GLvoid* indices)
 {
+  if( !vbo.ibo ) // ignore non-vbo
+     return;
   GLS_SET_COMMAND_PTR_BATCH(c, glDrawElements);
   c->mode = mode;
   c->count = count;
