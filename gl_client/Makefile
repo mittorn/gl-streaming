@@ -1,8 +1,8 @@
-CFLAGS=-O3 -Wall -I../common -I.
+CFLAGS=-O3 -Wall -I../common -I. -fPIC
 
 LIBS=-lpthread -lm
 OBJS=fifo.o server.o glclient.o
-EXES=samples/sample1 samples/sample2
+EXES=samples/sample1 samples/sample2 gls.so
 
 all: $(EXES)
 
@@ -14,6 +14,9 @@ server.o: ../common/server.c ../common/server.h fifo.o
 
 glclient.o: glclient.c glclient.h ../common/gls_command.h server.o
 	gcc -c -o glclient.o $(CFLAGS) glclient.c
+
+gls.so: $(OBJS) glsshared.c
+	gcc -shared -o gls.so $(CFLAGS) glsshared.c $(OBJS) -Wl,--no-undefined -pthread -ldl
 
 samples/glsutil.o: samples/glsutil.c samples/glsutil.h
 	gcc -c -o samples/glsutil.o $(CFLAGS) samples/glsutil.c

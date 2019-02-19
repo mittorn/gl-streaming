@@ -885,3 +885,100 @@ GL_APICALL void GL_APIENTRY glActiveTexture (GLenum texture)
   GLS_PUSH_BATCH();
 }
  */
+
+GL_APICALL const GLubyte GL_APIENTRY *glGetString(GLenum name)
+{
+    if( name == GL_EXTENSIONS )
+        return "GL_IMG_texture_npot";
+    return "";
+}
+
+GL_APICALL void GL_APIENTRY glGetIntegerv(GLenum name, GLint *params)
+{
+    *params = 4;
+}
+
+GL_APICALL void GL_APIENTRY glGetFloatv(GLenum name, GLfloat *params)
+{
+    if( name == GL_VIEWPORT )
+    {
+        params[0] = 0;
+        params[1] = 0;
+        params[2] = 100;
+        params[3] = 100;
+    }
+}
+
+GL_APICALL GLenum GL_APIENTRY glGetError()
+{
+    return GL_NO_ERROR;
+}
+
+GL_APICALL void         GL_APIENTRY glDepthFunc (GLenum func)
+{
+
+}
+
+GL_APICALL void         GL_APIENTRY glDepthMask (GLboolean flag)
+{
+
+}
+GL_APICALL void         GL_APIENTRY glDepthRangef (GLclampf zNear, GLclampf zFar)
+{
+
+}
+
+GL_APICALL void         GL_APIENTRY glStencilFunc(GLenum func, GLint r, GLuint m)
+{
+
+}
+
+
+GL_APICALL void         GL_APIENTRY glStencilOp (GLenum fail, GLenum zfail, GLenum zpass)
+{
+
+}
+
+
+GL_APICALL void         GL_APIENTRY glPolygonOffset (GLfloat factor, GLfloat units)
+{
+
+}
+GL_APICALL void         GL_APIENTRY glReadPixels (GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type, GLvoid* pixels)
+{
+
+}
+
+GL_APICALL void         GL_APIENTRY glStencilMask (GLuint mask)
+{
+
+}
+
+GL_APICALL void         GL_APIENTRY glLineWidth (GLfloat width)
+{
+
+}
+
+GL_APICALL void         GL_APIENTRY glHint (GLenum target, GLenum mode)
+{
+
+}
+
+GL_APICALL void         GL_APIENTRY glGetProgramiv (GLuint program, GLenum pname, GLint* params)
+{
+    if( pname == GL_LINK_STATUS )
+        *params = 1;
+    else
+    *params = 0;
+}
+
+
+GL_APICALL void         GL_APIENTRY glGetActiveUniform (GLuint program, GLuint index, GLsizei bufsize, GLsizei* length, GLint* size, GLenum* type, GLchar* name)
+{
+
+}
+
+GL_APICALL void         GL_APIENTRY glBlendFunc (GLenum sfactor, GLenum dfactor)
+{
+
+}
