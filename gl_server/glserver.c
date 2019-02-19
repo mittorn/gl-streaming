@@ -315,11 +315,12 @@ void glse_glShaderSource()
   GLSE_SET_COMMAND_PTR(c, glShaderSource);
   gls_data_glShaderSource_t *dat = (gls_data_glShaderSource_t *)glsec_global.tmp_buf.buf;
   unsigned int i;
+  char *str[256];
   for (i = 0; i < c->count; i++)
   {
-    dat->string[i] = (uint32_t)(dat->data + dat->string[i]);
+	str[i] = dat->data + dat->string[i];
   }
-  glShaderSource(c->shader, c->count, (const GLchar**)dat->string, dat->length);
+  glShaderSource(c->shader, c->count, (const GLchar**)str, dat->length);
   check_gl_err();
 }
 
