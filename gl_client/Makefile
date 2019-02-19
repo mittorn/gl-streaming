@@ -1,4 +1,4 @@
-CFLAGS=-O3 -Wall
+CFLAGS=-O3 -Wall -I../common
 
 LIBS=-lpthread -lm
 OBJS=fifo.o server.o glclient.o glsutil.o
@@ -6,13 +6,13 @@ EXES=sample1 sample2
 
 all: $(EXES)
 
-fifo.o: fifo.c fifo.h
-	gcc -c -o fifo.o $(CFLAGS) fifo.c
+fifo.o: ../common/fifo.c ../common/fifo.h
+	gcc -c -o fifo.o $(CFLAGS) ../common/fifo.c
 
-server.o: server.c server.h fifo.o
-	gcc -c -o server.o $(CFLAGS) server.c
+server.o: ../common/server.c ../common/server.h fifo.o
+	gcc -c -o server.o $(CFLAGS) ../common/server.c
 
-glclient.o: glclient.c glclient.h gls_command.h server.o
+glclient.o: glclient.c glclient.h ../common/gls_command.h server.o
 	gcc -c -o glclient.o $(CFLAGS) glclient.c
 
 glsutil.o: glsutil.c glsutil.h
