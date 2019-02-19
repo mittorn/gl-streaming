@@ -39,81 +39,108 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include "glcontrol.h"
 
+struct egl_state_t {
+  Window x_window_;
+  Pixmap x_pixmap_;
+  EGLDisplay display_;
+  EGLSurface surface_;
+  EGLContext context_;
+};
+struct egl_state_t egl_create_state_window_shared(EGLContext share_context,
+												  int x, int y, int w, int h) {
+  static Display * g_x_display;
+  struct egl_state_t retval;
+  retval.x_window_ = 0;
+  retval.x_pixmap_ = 0;
+  retval.display_ = EGL_NO_DISPLAY;
+  retval.surface_ = EGL_NO_SURFACE;
+  retval.context_ = EGL_NO_CONTEXT;
+
+  if (g_x_display == NULL) {
+	XInitThreads();
+	fprintf(stdout, "Using display: %s\n", XDisplayName(NULL));
+	g_x_display = XOpenDisplay(NULL);
+	if (g_x_display == NULL)
+	{
+	  fprintf(stderr, "XOpenDisplay() failed.\n");
+	  goto error;
+	}
+  }
+  Window x_root_window = DefaultRootWindow(g_x_display);
+  XSetWindowAttributes x_swa;
+  memset(&x_swa, 0, sizeof(x_swa));
+  x_swa.background_pixmap = None;
+  retval.x_window_ = XCreateWindow(g_x_display, x_root_window, x, y, w, h, 0,
+								   CopyFromParent, InputOutput, CopyFromParent,
+								   CWBackPixmap, &x_swa);
+  if (retval.x_window_ == 0) {
+	fprintf(stderr, "XCreateWindow() failed.\n");
+	goto error;
+  }
+  XMapWindow(g_x_display, retval.x_window_);
+  retval.display_ = eglGetDisplay(g_x_display);
+  if (retval.display_ == EGL_NO_DISPLAY) {
+	fprintf(stderr, "eglGetDisplay() failed.\n");
+	goto error;
+  }
+  if (!eglInitialize(retval.display_, NULL, NULL)) {
+	fprintf(stderr, "eglInitialize() failed with error: %x\n", eglGetError());
+	goto error;
+  }
+  static const EGLint config_attribs[] = {
+	EGL_BUFFER_SIZE, 24,
+	EGL_BLUE_SIZE, 8,
+	EGL_GREEN_SIZE, 8,
+	EGL_RED_SIZE, 8,
+	EGL_RENDERABLE_TYPE, EGL_OPENGL_ES2_BIT,
+	EGL_SURFACE_TYPE, EGL_WINDOW_BIT | EGL_PBUFFER_BIT,
+	EGL_NONE
+  };
+  EGLint num_configs;
+  if (!eglChooseConfig(retval.display_, config_attribs, NULL, 0,
+					   &num_configs)) {
+	fprintf(stderr, "eglChooseConfig() failed with error: %x\n", eglGetError());
+	goto error;
+  }
+  EGLConfig egl_config;
+  if (!eglChooseConfig(retval.display_, config_attribs, &egl_config, 1,
+	  &num_configs)) {
+	fprintf(stderr, "eglChooseConfig() failed with error: %x\n", eglGetError());
+	goto error;
+  }
+  retval.surface_ = eglCreateWindowSurface(retval.display_, egl_config,
+										   retval.x_window_, NULL);
+  if (retval.surface_ == EGL_NO_SURFACE) {
+	fprintf(stderr, "eglCreateWindowSurface() failed with error: %x\n",
+			eglGetError());
+	goto error;
+  }
+  static const EGLint context_attributes[] = {
+	EGL_CONTEXT_CLIENT_VERSION, 2,
+	EGL_NONE
+  };
+  retval.context_ = eglCreateContext(retval.display_, egl_config,
+									 share_context, context_attributes);
+  if (retval.context_ == EGL_NO_CONTEXT) {
+	fprintf(stderr, "eglCreateContext() failed with error: %x\n",
+			eglGetError());
+	goto error;
+  }
+  error:
+  return retval;
+}
+
+
 
 void init_egl(graphics_context_t *gc)
 {
   EGLBoolean r;
-  EGLint num_config;
-
-  VC_RECT_T dst_rect;
-  VC_RECT_T src_rect;
-
-  static const EGLint fb_attrib[] = {
-    EGL_RED_SIZE, 8,
-    EGL_GREEN_SIZE, 8,
-    EGL_BLUE_SIZE, 8,
-    EGL_ALPHA_SIZE, 8,
-    EGL_DEPTH_SIZE, 16,
-    EGL_SURFACE_TYPE, EGL_WINDOW_BIT,
-    EGL_NONE };
-
-  static const EGLint context_attrib[] = {
-    EGL_CONTEXT_CLIENT_VERSION, 2,
-    EGL_NONE };
-
-  EGLConfig config;
-
-  bcm_host_init();
-
-  gc->display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-  assert(gc->display != EGL_NO_DISPLAY);
-  check_gl_err();
-
-  r = eglInitialize(gc->display, NULL, NULL);
-  assert(EGL_FALSE != r);
-  check_gl_err();
-
-  r = eglChooseConfig(gc->display, fb_attrib, &config, 1, &num_config);
-  assert(EGL_FALSE != r);
-  check_gl_err();
-
-  r = eglBindAPI(EGL_OPENGL_ES_API);
-  assert(EGL_FALSE != r);
-  check_gl_err();
-
-  gc->context = eglCreateContext(gc->display, config, EGL_NO_CONTEXT, context_attrib);
-  assert(gc->context != EGL_NO_CONTEXT);
-  check_gl_err();
-
-  int32_t ri = graphics_get_display_size(0, &gc->screen_width, &gc->screen_height);
-  assert(ri >= 0);
-
-  dst_rect.x = 0;
-  dst_rect.y = 0;
-  dst_rect.width = gc->screen_width;
-  dst_rect.height = gc->screen_height;
-
-  src_rect.x = 0;
-  src_rect.y = 0;
-  src_rect.width = gc->screen_width << 16;
-  src_rect.height = gc->screen_height << 16;
-
-  gc->d_display = vc_dispmanx_display_open(0);
-  gc->d_update = vc_dispmanx_update_start(0);
-  gc->d_element = vc_dispmanx_element_add(
-    gc->d_update, gc->d_display,
-    0, &dst_rect, 0,
-    &src_rect, DISPMANX_PROTECTION_NONE, 0 , 0, (DISPMANX_TRANSFORM_T)0);
-
-  gc->d_window.element = gc->d_element;
-  gc->d_window.width = gc->screen_width;
-  gc->d_window.height = gc->screen_height;
-  vc_dispmanx_update_submit_sync(gc->d_update);
-  check_gl_err();
-
-  gc->surface = eglCreateWindowSurface(gc->display, config, &gc->d_window, NULL);
-  assert(gc->surface != EGL_NO_SURFACE);
-  check_gl_err();
+  struct egl_state_t state = egl_create_state_window_shared(0,10,10,100,100);
+  gc->display = state.display_;
+  gc->context = state.context_;
+  gc->screen_height = 100;
+  gc->screen_width = 100;
+  gc->surface = state.surface_;
 
   r = eglMakeCurrent(gc->display, gc->surface, gc->surface, gc->context);
   assert(EGL_FALSE != r);
@@ -123,9 +150,6 @@ void init_egl(graphics_context_t *gc)
 
 void release_egl(graphics_context_t *gc)
 {
-  vc_dispmanx_element_remove(gc->d_update, gc->d_element);
-  vc_dispmanx_display_close(gc->d_display);
-
   eglMakeCurrent(gc->display, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
   eglDestroySurface(gc->display, gc->surface);
   eglDestroyContext(gc->display, gc->context);

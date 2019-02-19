@@ -1,7 +1,7 @@
-CFLAGS=-O3 -Wall
+CFLAGS=-O3 -Wall -g
 
-LIBS=-L/opt/vc/lib/ -lGLESv2 -lEGL -lopenmaxil -lbcm_host -lvcos -lvchiq_arm -lpthread -lrt
-INCLUDES=-I/opt/vc/include/ -I/opt/vc/include/interface/vcos/pthreads -I/opt/vc/include/interface/vmcs_host/linux
+LIBS=-L/opt/vc/lib/ -lGLESv2 -lEGL -pthread -lrt -lX11 -g
+INCLUDES=
 OBJS=fifo.o glcontrol.o server.o glserver.o
 
 all: gl_server

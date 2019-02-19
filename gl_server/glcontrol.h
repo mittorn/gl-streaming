@@ -29,7 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 
-#include "bcm_host.h"
+//#include "bcm_host.h"
 
 #include "GLES2/gl2.h"
 #include "EGL/egl.h"
@@ -43,10 +43,10 @@ typedef struct
   EGLDisplay display;
   EGLSurface surface;
   EGLContext context;
-  EGL_DISPMANX_WINDOW_T d_window;
-  DISPMANX_ELEMENT_HANDLE_T d_element;
-  DISPMANX_DISPLAY_HANDLE_T d_display;
-  DISPMANX_UPDATE_HANDLE_T d_update;
+//  EGL_DISPMANX_WINDOW_T d_window;
+//  DISPMANX_ELEMENT_HANDLE_T d_element;
+//  DISPMANX_DISPLAY_HANDLE_T d_display;
+//  DISPMANX_UPDATE_HANDLE_T d_update;
 } graphics_context_t;
 
 
