@@ -1,8 +1,8 @@
-CFLAGS=-O3 -Wall -I../common
+CFLAGS=-O3 -Wall -I../common -I.
 
 LIBS=-lpthread -lm
-OBJS=fifo.o server.o glclient.o glsutil.o
-EXES=sample1 sample2
+OBJS=fifo.o server.o glclient.o
+EXES=samples/sample1 samples/sample2
 
 all: $(EXES)
 
@@ -15,14 +15,14 @@ server.o: ../common/server.c ../common/server.h fifo.o
 glclient.o: glclient.c glclient.h ../common/gls_command.h server.o
 	gcc -c -o glclient.o $(CFLAGS) glclient.c
 
-glsutil.o: glsutil.c glsutil.h
-	gcc -c -o glsutil.o $(CFLAGS) glsutil.c
+samples/glsutil.o: samples/glsutil.c samples/glsutil.h
+	gcc -c -o samples/glsutil.o $(CFLAGS) samples/glsutil.c
 
-sample1: sample1.c glclient.o glsutil.o
-	gcc -o sample1 $(CFLAGS) sample1.c $(OBJS) $(LIBS)
+samples/sample1: samples/sample1.c glclient.o samples/glsutil.o
+	gcc -o samples/sample1 $(CFLAGS) samples/sample1.c samples/glsutil.o $(OBJS) $(LIBS)
 
-sample2: sample2.c glclient.o glsutil.o
-	gcc -o sample2 $(CFLAGS) sample2.c $(OBJS) $(LIBS)
+samples/sample2: samples/sample2.c glclient.o samples/glsutil.o
+	gcc -o samples/sample2 $(CFLAGS) samples/sample2.c samples/glsutil.o $(OBJS) $(LIBS)
 
 clean:
 	rm $(EXES) $(OBJS)
