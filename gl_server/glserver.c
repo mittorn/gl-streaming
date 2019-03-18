@@ -211,6 +211,7 @@ void glse_glDeleteBuffers()
 void glse_glDrawArrays()
 {
   GLSE_SET_COMMAND_PTR(c, glDrawArrays);
+  printf("DrawArrays\n");
   glDrawArrays(c->mode, c->first, c->count);
   check_gl_err();
 }
@@ -403,6 +404,7 @@ void glse_glDisable()
 void glse_glDrawElements()
 {
   GLSE_SET_COMMAND_PTR(c, glDrawElements);
+    printf("DrawElements\n");
   glDrawElements (c->mode, c->count, c->type, (const GLvoid*)c->indices);
   check_gl_err();
 }

@@ -50,7 +50,7 @@ typedef struct
 } graphics_context_t;
 
 
-//#define DEBUG
+#define DEBUG
 #ifdef DEBUG
 #define check_gl_err() assert(glGetError() == 0)
 #else

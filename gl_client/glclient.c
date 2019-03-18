@@ -60,9 +60,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 gls_context_t glsc_global;
 static struct vbo_state
 {
-    GLuint vbo, ibo;
+    GLuint vbo, ibo, ibo_emu;
 } vbo;
 
+struct attrib_ptr_s {
+    GLboolean   isenabled;
+    GLint       size;
+    GLenum      type;
+    GLsizei     stride;
+    GLboolean   normalized;
+    const GLvoid *ptr;
+    GLuint vbo_id;
+    GLuint webgl_vbo_id;
+} vt_attrib_pointer[16];
 
 int gls_cmd_flush();
 
@@ -382,10 +392,55 @@ GL_APICALL void GL_APIENTRY glDeleteBuffers (GLsizei n, const GLuint* buffers)
   c->n = n;
   GLS_SEND_PACKET(glDeleteBuffers);
 }
+static void wes_vertex_attrib_pointer(int i, int count)
+{
+    long ptrdiff;
+    int stride;
 
+    if( !vt_attrib_pointer[i].isenabled || vt_attrib_pointer[i].vbo_id )
+        return;
+
+    if( !vt_attrib_pointer[i].webgl_vbo_id )
+        glGenBuffers(1, &vt_attrib_pointer[i].webgl_vbo_id );
+
+    // detect if we can fit multiple arrays to single VBO
+    ptrdiff = (char*)vt_attrib_pointer[i].ptr - (char*)vt_attrib_pointer[0].ptr;
+    stride = vt_attrib_pointer[i].stride;
+
+    // detect stride by type
+    if( stride == 0 )
+    {
+        if( vt_attrib_pointer[i].type == GL_UNSIGNED_BYTE )
+            stride = vt_attrib_pointer[i].size;
+        else
+            stride = vt_attrib_pointer[i].size * 4;
+    }
+
+    if( i && vt_attrib_pointer[0].isenabled && !vt_attrib_pointer[0].vbo_id && ptrdiff > 0 && ptrdiff < stride )
+    {
+        // reuse existing array
+        glBindBuffer( GL_ARRAY_BUFFER, vt_attrib_pointer[0].webgl_vbo_id );
+        glVertexAttribPointer(i, vt_attrib_pointer[i].size, vt_attrib_pointer[i].type, vt_attrib_pointer[i].normalized, vt_attrib_pointer[i].stride, ptrdiff);
+    }
+    else
+    {
+        glBindBuffer( GL_ARRAY_BUFFER, vt_attrib_pointer[i].webgl_vbo_id );
+        //printf("BufferData %d %d\n",vt_attrib_pointer[i].webgl_vbo_id, (count + 4) * stride );
+        glBufferData( GL_ARRAY_BUFFER, (count + 4) * stride, (void*)vt_attrib_pointer[i].ptr, GL_STREAM_DRAW);
+        glVertexAttribPointer(i, vt_attrib_pointer[i].size, vt_attrib_pointer[i].type, vt_attrib_pointer[i].normalized, vt_attrib_pointer[i].stride, 0);
+    }
+}
 
 GL_APICALL void GL_APIENTRY glDrawArrays (GLenum mode, GLint first, GLsizei count)
 {
+    int vbo_bkp = vbo.vbo;
+    int i;
+    for( i = 0;i < 16; i++ )
+    {
+        if( vt_attrib_pointer[i].isenabled )
+            wes_vertex_attrib_pointer(i, first +count);
+    }
+    glBindBuffer( GL_ARRAY_BUFFER, vbo_bkp );
   GLS_SET_COMMAND_PTR_BATCH(c, glDrawArrays);
   c->mode = mode;
   c->first = first;
@@ -443,16 +498,33 @@ GL_APICALL int GL_APIENTRY glGetAttribLocation (GLuint program, const GLchar* na
 
 GL_APICALL void GL_APIENTRY glEnableVertexAttribArray (GLuint index)
 {
+    vt_attrib_pointer[index].isenabled = GL_TRUE;
   GLS_SET_COMMAND_PTR_BATCH(c, glEnableVertexAttribArray);
   c->index = index;
   GLS_PUSH_BATCH(glEnableVertexAttribArray);
 }
 
 
+GL_APICALL void GL_APIENTRY glVertexAttribPointer_vbo (GLuint indx, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid* ptr)
+{
+    vt_attrib_pointer[indx].size = size;
+    vt_attrib_pointer[indx].type = type;
+    vt_attrib_pointer[indx].stride = stride;
+    vt_attrib_pointer[indx].normalized = normalized;
+    vt_attrib_pointer[indx].ptr = ptr;
+    vt_attrib_pointer[indx].vbo_id = vbo.vbo;
+}
+
+
+
 GL_APICALL void GL_APIENTRY glVertexAttribPointer (GLuint indx, GLint size, GLenum type, GLboolean normalized, GLsizei stride, const GLvoid* ptr)
 {
   if( !vbo.vbo ) // ignore non-vbo
+  {
+      glVertexAttribPointer_vbo(indx, size, type, normalized, stride, ptr);
       return;
+  }
+  vt_attrib_pointer[indx].vbo_id = vbo.vbo;
   GLS_SET_COMMAND_PTR_BATCH(c, glVertexAttribPointer);
   c->indx = indx;
   c->size = size;
@@ -624,6 +696,7 @@ GL_APICALL void GL_APIENTRY glUniform1f (GLint location, GLfloat x)
 
 GL_APICALL void GL_APIENTRY glDisableVertexAttribArray (GLuint index)
 {
+  vt_attrib_pointer[index].isenabled = GL_FALSE;
   GLS_SET_COMMAND_PTR_BATCH(c, glDisableVertexAttribArray);
   c->index = index;
   GLS_PUSH_BATCH(glDisableVertexAttribArray);
@@ -636,12 +709,60 @@ GL_APICALL void GL_APIENTRY glDisable (GLenum cap)
   c->cap = cap;
   GLS_PUSH_BATCH(glDisable);
 }
+GLvoid glDrawRangeElements( GLenum mode, GLuint start, GLuint end, GLsizei count, GLenum type, const GLvoid *indices )
+{
+    int vbo_bkp = vbo.vbo;
+    int ibo_bkp = vbo.ibo;
+    int i;
+    for( i = 0;i < 16; i++ )
+        wes_vertex_attrib_pointer(i, end);
+    if( !vbo.ibo )
+    {
+        if( !vbo.ibo_emu )
+            glGenBuffers(1, &vbo.ibo_emu);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo.ibo_emu);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER,  type == GL_UNSIGNED_SHORT?count * 2:count*4, indices, GL_STREAM_DRAW);
+        indices = 0;
+
+      }
+
+
+    GLS_SET_COMMAND_PTR_BATCH(c, glDrawElements);
+    c->mode = mode;
+    c->count = count;
+    c->type = type;
+  #if __WORDSIZE == 64
+    c->indices = (uint32_t)(uint64_t)indices;
+  #else
+    c->indices = (uint32_t)indices;
+  #endif
+    GLS_PUSH_BATCH(glDrawElements);
+    if( !ibo_bkp )
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+       glBindBuffer( GL_ARRAY_BUFFER, vbo_bkp );
+}
 
 
 GL_APICALL void GL_APIENTRY glDrawElements (GLenum mode, GLsizei count, GLenum type, const GLvoid* indices)
 {
-  if( !vbo.ibo ) // ignore non-vbo
-     return;
+  int vbo_bkp = vbo.vbo;
+  int ibo_bkp = vbo.ibo;
+  int i;
+  for( i = 0;i < 16; i++ )
+  {
+      if( vt_attrib_pointer[i].isenabled )
+          wes_vertex_attrib_pointer(i, 65536);
+  }
+  if( !vbo.ibo )
+  {
+      if( !vbo.ibo_emu )
+          glGenBuffers(1, &vbo.ibo_emu);
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vbo.ibo_emu);
+      glBufferData(GL_ELEMENT_ARRAY_BUFFER, type == GL_UNSIGNED_SHORT?count * 2:count*4, indices, GL_STREAM_DRAW);
+      indices = 0;
+
+    }
+
   GLS_SET_COMMAND_PTR_BATCH(c, glDrawElements);
   c->mode = mode;
   c->count = count;
@@ -652,6 +773,9 @@ GL_APICALL void GL_APIENTRY glDrawElements (GLenum mode, GLsizei count, GLenum t
   c->indices = (uint32_t)indices;
 #endif
   GLS_PUSH_BATCH(glDrawElements);
+  if( !ibo_bkp )
+      glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+  glBindBuffer( GL_ARRAY_BUFFER, vbo_bkp );
 }
 
 
